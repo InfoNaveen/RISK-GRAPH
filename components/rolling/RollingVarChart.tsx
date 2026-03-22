@@ -7,10 +7,10 @@ import { ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Respon
 
 export default function RollingVarChart() {
   const { tickers, portfolioWeights } = usePortfolio();
-  const weights = portfolioWeights || {};
 
   const data = useMemo(() => {
     if (tickers.length === 0) return null;
+    const weights = portfolioWeights || {};
 
     const returnsMap: Record<string, number[]> = {};
     const nSteps = (SYNTHETIC_PRICES[tickers[0] as keyof typeof SYNTHETIC_PRICES] || []).length;
@@ -60,7 +60,7 @@ export default function RollingVarChart() {
     }
 
     return { chartData, avgVar: sumVar / (portfolioReturns.length - windowSize) * 100 };
-  }, [tickers, weights]);
+  }, [tickers, portfolioWeights]);
 
   if (tickers.length === 0 || !data || !data.chartData || data.chartData.length === 0) return null;
 

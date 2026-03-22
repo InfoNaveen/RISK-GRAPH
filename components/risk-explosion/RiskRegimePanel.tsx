@@ -6,10 +6,10 @@ import { getVolatilities, stressCovariance, portfolioVariance } from '@/lib/math
 
 export default function RiskRegimePanel() {
   const { alpha, beta, tickers, portfolioWeights, lambdaMax } = usePortfolio();
-  const weights = portfolioWeights || {};
 
   const metrics = useMemo(() => {
     if (tickers.length === 0) return null;
+    const weights = portfolioWeights || {};
     
     const vols = getVolatilities(tickers);
     const weightArray = tickers.map(t => weights[t] || 0);
@@ -47,7 +47,7 @@ export default function RiskRegimePanel() {
       divRatio,
       volIncrease
     };
-  }, [tickers, weights, alpha]);
+  }, [tickers, portfolioWeights, alpha]);
 
   if (!metrics) return null;
 

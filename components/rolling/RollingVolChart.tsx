@@ -9,12 +9,12 @@ import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveCo
 
 export default function RollingVolChart() {
   const { tickers, portfolioWeights } = usePortfolio();
-  const weights = portfolioWeights || {};
   const [windowSize, setWindowSize] = useState<number>(21);
   const [visibleAssets, setVisibleAssets] = useState<Record<string, boolean>>({});
 
   const data = useMemo(() => {
     if (tickers.length === 0) return [];
+    const weights = portfolioWeights || {};
 
     const returnsMap: Record<string, number[]> = {};
     const nSteps = (SYNTHETIC_PRICES[tickers[0] as keyof typeof SYNTHETIC_PRICES] || []).length;
@@ -62,7 +62,7 @@ export default function RollingVolChart() {
     }
     
     return chartData;
-  }, [tickers, weights, windowSize]);
+  }, [tickers, portfolioWeights, windowSize]);
 
   if (tickers.length === 0) return null;
 

@@ -8,10 +8,10 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 export default function DrawdownChart() {
   const { tickers, portfolioWeights } = usePortfolio();
-  const weights = portfolioWeights || {};
 
   const data = useMemo(() => {
     if (tickers.length === 0) return null;
+    const weights = portfolioWeights || {};
 
     const nSteps = (SYNTHETIC_PRICES[tickers[0] as keyof typeof SYNTHETIC_PRICES] || []).length;
     
@@ -64,7 +64,7 @@ export default function DrawdownChart() {
       recoveryDays: recoveryDays > 0 ? recoveryDays : 'Not recovered',
       calmar
     };
-  }, [tickers, weights]);
+  }, [tickers, portfolioWeights]);
 
   if (!data) return null;
 

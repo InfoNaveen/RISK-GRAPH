@@ -13,10 +13,10 @@ interface ScenarioImpactChartProps {
 
 export default function ScenarioImpactChart({ scenario, totalValue }: ScenarioImpactChartProps) {
   const { tickers, portfolioWeights } = usePortfolio();
-  const weights = portfolioWeights || {};
 
   const data = useMemo(() => {
     if (tickers.length === 0) return null;
+    const weights = portfolioWeights || {};
     
     const weightsRecord: Record<string, number> = {};
     tickers.forEach(t => weightsRecord[t] = weights[t] || 0);
@@ -66,7 +66,7 @@ export default function ScenarioImpactChart({ scenario, totalValue }: ScenarioIm
     });
 
     return { steps, result, items };
-  }, [tickers, weights, scenario, totalValue]);
+  }, [tickers, portfolioWeights, scenario, totalValue]);
 
   if (!data) return null;
 
