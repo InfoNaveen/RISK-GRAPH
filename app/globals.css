@@ -24,6 +24,8 @@
 }
 
 html, body {
+  height: 100%;
+  overflow-x: hidden;
   font-family: 'DM Sans', sans-serif;
   background: var(--cream);
   color: var(--ink);
@@ -215,4 +217,30 @@ input[type="range"]::-webkit-slider-thumb {
   cursor: pointer;
   border: 2px solid white;
   box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+/* Main content area must account for fixed sidebar */
+main {
+  margin-left: 260px;
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
+/* Sidebar Custom Scrollbars */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.sidebar-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-muted);
 }

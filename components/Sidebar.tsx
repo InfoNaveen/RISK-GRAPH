@@ -106,7 +106,7 @@ function ControlsPanel() {
   };
 
   return (
-    <div style={{ padding: '0 24px 24px', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column' }}>
       {/* Portfolio Input */}
       <div style={{ ...sectionHeaderStyle, marginTop: 16 }}>📊 Portfolio Input</div>
       
@@ -242,7 +242,7 @@ export default function Sidebar() {
       {/* Desktop sidebar */}
       <aside className="sidebar-desktop" style={{
         width: 260,
-        minHeight: '100vh',
+        height: '100vh',
         borderRight: '1px solid var(--border)',
         background: 'var(--cream)',
         display: 'flex',
@@ -251,9 +251,10 @@ export default function Sidebar() {
         top: 0,
         left: 0,
         zIndex: 50,
+        overflow: 'hidden',
       }}>
         {/* Logo */}
-        <div style={{ padding: '32px 24px 24px' }}>
+        <div style={{ padding: '24px 20px 16px', flexShrink: 0, borderBottom: '1px solid var(--border)' }}>
           <h1 style={{
             fontFamily: "'Playfair Display', serif",
             fontSize: 20,
@@ -275,7 +276,7 @@ export default function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav style={{ padding: '16px 0', borderBottom: '1px solid var(--border)' }}>
+        <nav className="sidebar-scroll" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '16px 0' }}>
           {navGroups.map((group, gIdx) => (
             <div key={group.title} style={{ marginBottom: gIdx === navGroups.length - 1 ? 0 : 24 }}>
               <div style={{ 
@@ -320,7 +321,7 @@ export default function Sidebar() {
         </nav>
 
         {/* Controls Panel (scrollable) */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="sidebar-scroll" style={{ flexShrink: 0, borderTop: '1px solid var(--border)', overflowY: 'auto', maxHeight: '45vh' }}>
           <ControlsPanel />
         </div>
       </aside>
