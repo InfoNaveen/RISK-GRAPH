@@ -3,22 +3,117 @@
 
 import { ASSET_NAMES, ASSET_PARAMS, type AssetName } from './types';
 
-// ─── 10×10 Correlation Matrix (Indian Equities) ────────────────────
-// Order: RELIANCE, TCS, HDFCBANK, INFY, ICICIBANK, AXISBANK, SBIN, WIPRO, LT, MARUTI
-export const CORRELATION_MATRIX: number[][] = [
-  [1.00, 0.35, 0.52, 0.30, 0.50, 0.45, 0.42, 0.28, 0.48, 0.38],
-  [0.35, 1.00, 0.40, 0.68, 0.38, 0.32, 0.25, 0.62, 0.34, 0.30],
-  [0.52, 0.40, 1.00, 0.36, 0.72, 0.65, 0.58, 0.33, 0.42, 0.35],
-  [0.30, 0.68, 0.36, 1.00, 0.34, 0.28, 0.22, 0.58, 0.30, 0.26],
-  [0.50, 0.38, 0.72, 0.34, 1.00, 0.62, 0.55, 0.30, 0.40, 0.33],
-  [0.45, 0.32, 0.65, 0.28, 0.62, 1.00, 0.52, 0.26, 0.38, 0.30],
-  [0.42, 0.25, 0.58, 0.22, 0.55, 0.52, 1.00, 0.20, 0.35, 0.28],
-  [0.28, 0.62, 0.33, 0.58, 0.30, 0.26, 0.20, 1.00, 0.28, 0.24],
-  [0.48, 0.34, 0.42, 0.30, 0.40, 0.38, 0.35, 0.28, 1.00, 0.42],
-  [0.38, 0.30, 0.35, 0.26, 0.33, 0.30, 0.28, 0.24, 0.42, 1.00],
+// ─── Jacobi Eigenvalue Decomp for symmetric matrices ──────────────────
+export function jacobiEigenvalue(matrix: number[][], maxIter = 1000, tol = 1e-9): { eigenvalues: number[], eigenvectors: number[][] } {
+  const n = matrix.length;
+  let A = matrix.map(row => [...row]);
+  let V: number[][] = Array.from({length: n}, (_, i) => Array.from({length: n}, (_, j) => i === j ? 1 : 0));
+  
+  for (let iter = 0; iter < maxIter; iter++) {
+    let maxOffDiag = 0;
+    let p = 0, q = 0;
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const val = Math.abs(A[i][j]);
+        if (val > maxOffDiag) {
+          maxOffDiag = val;
+          p = i;
+          q = j;
+        }
+      }
+    }
+    
+    if (maxOffDiag < tol) break;
+    
+    const diff = A[q][q] - A[p][p];
+    let t = 0;
+    if (Math.abs(diff) < tol) {
+      t = A[p][q] > 0 ? 1 : -1;
+    } else {
+      const theta = diff / (2 * A[p][q]);
+      t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
+    }
+    
+    const c = 1 / Math.sqrt(t * t + 1);
+    const s = t * c;
+    
+    for (let i = 0; i < n; i++) {
+      if (i !== p && i !== q) {
+        const aip = A[i][p];
+        const aiq = A[i][q];
+        A[i][p] = c * aip - s * aiq;
+        A[p][i] = A[i][p];
+        A[i][q] = s * aip + c * aiq;
+        A[q][i] = A[i][q];
+      }
+    }
+    const app = A[p][p];
+    const aqq = A[q][q];
+    const apq = A[p][q];
+    A[p][p] = c * c * app - 2 * s * c * apq + s * s * aqq;
+    A[q][q] = s * s * app + 2 * s * c * apq + c * c * aqq;
+    A[p][q] = 0;
+    A[q][p] = 0;
+    
+    for (let i = 0; i < n; i++) {
+        const vip = V[i][p];
+        const viq = V[i][q];
+        V[i][p] = c * vip - s * viq;
+        V[i][q] = s * vip + c * viq;
+    }
+  }
+  
+  return { eigenvalues: A.map((row, i) => row[i]), eigenvectors: V };
+}
+
+// ─── nearestPSD correlation matrix correction ───────────────────────
+export function nearestPSD(matrix: number[][], epsilon = 1e-6): number[][] {
+  const n = matrix.length;
+  const { eigenvalues, eigenvectors } = jacobiEigenvalue(matrix);
+  const clippedEig = eigenvalues.map(v => Math.max(v, epsilon));
+  
+  const res: number[][] = Array.from({length: n}, () => new Array(n).fill(0));
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      let sum = 0;
+      for (let k = 0; k < n; k++) {
+        sum += eigenvectors[i][k] * clippedEig[k] * eigenvectors[j][k];
+      }
+      res[i][j] = sum;
+    }
+  }
+  
+  for (let i=0; i<n; i++) {
+    for (let j=0; j<n; j++) {
+      if (i !== j) {
+        res[i][j] = res[i][j] / Math.sqrt(res[i][i] * res[j][j]);
+      }
+    }
+  }
+  for (let i=0; i<n; i++) res[i][i] = 1.0;
+  
+  return res;
+}
+
+// ─── 13×13 Correlation Matrix (Equities + Gold, Silver, RealEstate) ───
+const RAW_CORRELATION_MATRIX: number[][] = [
+  [1.00, 0.35, 0.52, 0.30, 0.50, 0.45, 0.42, 0.28, 0.48, 0.38, 0.10, 0.12, 0.25],
+  [0.35, 1.00, 0.40, 0.68, 0.38, 0.32, 0.25, 0.62, 0.34, 0.30, 0.12, 0.15, 0.30],
+  [0.52, 0.40, 1.00, 0.36, 0.72, 0.65, 0.58, 0.33, 0.42, 0.35, 0.08, 0.10, 0.22],
+  [0.30, 0.68, 0.36, 1.00, 0.34, 0.28, 0.22, 0.58, 0.30, 0.26, 0.15, 0.18, 0.35],
+  [0.50, 0.38, 0.72, 0.34, 1.00, 0.62, 0.55, 0.30, 0.40, 0.33, 0.05, 0.08, 0.20],
+  [0.45, 0.32, 0.65, 0.28, 0.62, 1.00, 0.52, 0.26, 0.38, 0.30, 0.14, 0.16, 0.28],
+  [0.42, 0.25, 0.58, 0.22, 0.55, 0.52, 1.00, 0.20, 0.35, 0.28, 0.11, 0.13, 0.24],
+  [0.28, 0.62, 0.33, 0.58, 0.30, 0.26, 0.20, 1.00, 0.28, 0.24, 0.09, 0.11, 0.26],
+  [0.48, 0.34, 0.42, 0.30, 0.40, 0.38, 0.35, 0.28, 1.00, 0.42, 0.13, 0.17, 0.32],
+  [0.38, 0.30, 0.35, 0.26, 0.33, 0.30, 0.28, 0.24, 0.42, 1.00, 0.07, 0.09, 0.21],
+  [0.10, 0.12, 0.08, 0.15, 0.05, 0.14, 0.11, 0.09, 0.13, 0.07, 1.00, 0.72, 0.25],
+  [0.12, 0.15, 0.10, 0.18, 0.08, 0.16, 0.13, 0.11, 0.17, 0.09, 0.72, 1.00, 0.20],
+  [0.25, 0.30, 0.22, 0.35, 0.20, 0.28, 0.24, 0.26, 0.32, 0.21, 0.25, 0.20, 1.00],
 ];
 
-const N = ASSET_NAMES.length;
+export const CORRELATION_MATRIX = nearestPSD(RAW_CORRELATION_MATRIX);
+export const lambdaMax = Math.max(...jacobiEigenvalue(CORRELATION_MATRIX).eigenvalues);
 
 // ─── Matrix Utilities ───────────────────────────────────────────────
 
@@ -218,16 +313,13 @@ export function generateNormals(n: number): number[] {
 }
 
 // ─── Stress Covariance ──────────────────────────────────────────────
-export function stressCovariance(alpha: number, vols: number[]): number[][] {
+export function stressCovariance(alpha: number, vols: number[], covMatrix: number[][] = CORRELATION_MATRIX): number[][] {
   const n = vols.length;
   const sigma: number[][] = [];
-  // Σ_stress(α) = (1-α)Σ + α Σ_max
-  // where Σ = D * C * D (D = diag of vols, C = correlation)
-  // and Σ_max = σσᵀ (all correlations = 1)
   for (let i = 0; i < n; i++) {
     sigma[i] = [];
     for (let j = 0; j < n; j++) {
-      const original = vols[i] * CORRELATION_MATRIX[i][j] * vols[j];
+      const original = vols[i] * covMatrix[i][j] * vols[j];
       const stressed = vols[i] * vols[j]; // correlation = 1
       sigma[i][j] = (1 - alpha) * original + alpha * stressed;
     }
@@ -245,9 +337,50 @@ export function portfolioVariance(weights: number[], covMatrix: number[][]): num
   return variance;
 }
 
-// ─── Get Volatilities Array ─────────────────────────────────────────
-export function getVolatilities(): number[] {
-  return ASSET_NAMES.map(name => ASSET_PARAMS[name].sigma);
+// ─── Get Volatilities & Drifts ──────────────────────────────────────
+export function getVolatilities(tickers?: string[]): number[] {
+  const assets = tickers ? tickers.filter(t => ASSET_NAMES.includes(t as any)) : ASSET_NAMES;
+  return assets.map(name => ASSET_PARAMS[name as AssetName].sigma);
+}
+
+export function getDrifts(tickers?: string[]): number[] {
+  const assets = tickers ? tickers.filter(t => ASSET_NAMES.includes(t as any)) : ASSET_NAMES;
+  return assets.map(name => ASSET_PARAMS[name as AssetName].mu);
+}
+
+// ─── Get Correlation Sub Matrix ─────────────────────────────────────
+export function getCorrelationSubMatrix(tickers: string[], matrix: number[][] = CORRELATION_MATRIX): number[][] {
+  const indices = tickers
+    .map(t => ASSET_NAMES.indexOf(t as any))
+    .filter(i => i !== -1);
+  if (indices.length < 2) return [[1]];
+  
+  const subMatrix: number[][] = [];
+  for (let i = 0; i < indices.length; i++) {
+    subMatrix[i] = [];
+    for (let j = 0; j < indices.length; j++) {
+      subMatrix[i][j] = matrix[indices[i]][indices[j]];
+    }
+  }
+  return nearestPSD(subMatrix);
+}
+
+// ─── Compute Histogram ──────────────────────────────────────────────
+export function computeHistogram(values: number[], numBins: number): { binEdges: number[], counts: number[], density: number[] } {
+  if (values.length === 0) return { binEdges: [], counts: [], density: [] };
+  const maxV = Math.max(...values);
+  const minV = Math.min(...values);
+  const step = (maxV - minV) / numBins;
+  const binEdges = Array.from({length: numBins + 1}, (_, i) => minV + i * step);
+  const counts = new Array(numBins).fill(0);
+  for (const v of values) {
+    let bin = Math.floor((v - minV) / step);
+    if (bin >= numBins) bin = numBins - 1;
+    if (bin < 0) bin = 0;
+    counts[bin]++;
+  }
+  const density = counts.map(c => c / (values.length * step || 1));
+  return { binEdges, counts, density };
 }
 
 // ─── Contagion Simulation ───────────────────────────────────────────
@@ -280,3 +413,88 @@ export function formatINRPrecise(value: number): string {
     maximumFractionDigits: 2,
   }).format(value);
 }
+
+// ─── NEW ADDITIONS FOR MODULES 8-11 ─────────────────────────────────
+
+export function computeAllEigenvalues(matrix: number[][]): number[] {
+  const n = matrix.length;
+  let A = matrix.map(row => [...row]);
+  const eigenvals: number[] = [];
+
+  for (let i = 0; i < n; i++) {
+    const { eigenvalue, eigenvector } = powerIteration(A, 200, 1e-7);
+    eigenvals.push(eigenvalue);
+    
+    // Deflate: A = A - lambda * v * v^T
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        A[r][c] -= eigenvalue * eigenvector[r] * eigenvector[c];
+      }
+    }
+  }
+
+  // Ensure they are sorted descending
+  return eigenvals.sort((a, b) => b - a);
+}
+
+export function computeMarginalRiskContribution(weights: number[], covMatrix: number[][]): number[] {
+  const sigmaP = Math.sqrt(portfolioVariance(weights, covMatrix));
+  if (sigmaP === 0) return weights.map(() => 0);
+  
+  const covTimesW = matVecMul(covMatrix, weights); // (Σw)_i
+  return covTimesW.map(val => val / sigmaP);
+}
+
+export function computeComponentRiskContribution(weights: number[], covMatrix: number[][]): number[] {
+  const mrc = computeMarginalRiskContribution(weights, covMatrix);
+  return weights.map((w, i) => w * mrc[i]);
+}
+
+export function computeRollingVolatility(returns: number[], window: number): number[] {
+  const result: number[] = [];
+  for (let t = 0; t < returns.length; t++) {
+    if (t < window - 1) {
+      result.push(NaN);
+    } else {
+      const windowReturns = returns.slice(t - window + 1, t + 1);
+      const mean = windowReturns.reduce((sum, r) => sum + r, 0) / window;
+      const variance = windowReturns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / (window - 1);
+      result.push(Math.sqrt(variance) * Math.sqrt(252));
+    }
+  }
+  return result;
+}
+
+export function computeDrawdown(prices: number[]): number[] {
+  let runningMax = prices[0];
+  return prices.map(price => {
+    if (price > runningMax) runningMax = price;
+    return (price - runningMax) / runningMax; // always <= 0
+  });
+}
+
+export function computeMaxDrawdown(prices: number[]): { mdd: number, peakIdx: number, troughIdx: number } {
+  const drawdowns = computeDrawdown(prices);
+  let mdd = 0;
+  let troughIdx = 0;
+  let peakIdx = 0;
+  
+  for (let i = 0; i < drawdowns.length; i++) {
+    if (drawdowns[i] < mdd) {
+      mdd = drawdowns[i];
+      troughIdx = i;
+    }
+  }
+  
+  // Find the peak that led to this trough
+  let maxP = prices[0];
+  for (let i = 0; i <= troughIdx; i++) {
+    if (prices[i] > maxP) {
+      maxP = prices[i];
+      peakIdx = i;
+    }
+  }
+  
+  return { mdd, peakIdx, troughIdx };
+}
+

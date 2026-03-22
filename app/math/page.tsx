@@ -246,6 +246,33 @@ export default function MathPage() {
               description="The portfolio with the lowest possible variance regardless of expected return. Found by setting ∂L/∂w = 0 with only the budget constraint active (λ = 0)."
             />
           </div>
+          {/* SECTION 10 */}
+          <div id="sec-10" style={{ marginBottom: 64, scrollMarginTop: 100 }}>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 400, borderBottom: '1px solid var(--border)', paddingBottom: 16, marginBottom: 24 }}>10. Portfolio Attribution</h2>
+            <FormulaCard
+              id="f-10a"
+              title="10a. Marginal Risk Contribution (MRC)"
+              formula="\mathrm{MRC}_i = \frac{\partial \sigma_p}{\partial w_i} = \frac{(\boldsymbol{\Sigma}\mathbf{w})_i}{\sigma_p}"
+              description="The rate of change in portfolio volatility for a small change in the weight of asset i."
+            />
+            <FormulaCard
+              id="f-10b"
+              title="10b. Component Risk Contribution (CRC)"
+              formula="\mathrm{CRC}_i = w_i \cdot \mathrm{MRC}_i = w_i \frac{(\boldsymbol{\Sigma}\mathbf{w})_i}{\sigma_p}"
+              description="By Euler's homogeneous function theorem, the sum of all CRCs exactly equals total portfolio volatility: Σ CRC_i = σ_p."
+            />
+          </div>
+
+          {/* SECTION 11 */}
+          <div id="sec-11" style={{ scrollMarginTop: 100 }}>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 400, borderBottom: '1px solid var(--border)', paddingBottom: 16, marginBottom: 24 }}>11. Drawdown Analysis</h2>
+            <FormulaCard
+              id="f-11a"
+              title="11a. Peak-to-Trough Drawdown"
+              formula="D_t = \frac{\max_{0 \leq \tau \leq t} P_\tau - P_t}{\max_{0 \leq \tau \leq t} P_\tau}"
+              description="Percentage decline from the historical peak to the current value. Max Drawdown (MDD) is the maximum of D_t over the entire period."
+            />
+          </div>
         </div>
       </div>
     </div>

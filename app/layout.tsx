@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
+import { PortfolioProvider } from "@/lib/PortfolioContext";
 
 export const metadata: Metadata = {
   title: "RiskGraph 2.0 — Quantitative Risk Analytics",
@@ -15,16 +16,18 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body style={{ background: 'var(--cream)', display: 'flex', minHeight: '100vh' }}>
-        <Sidebar />
-        <main className="main-content" style={{
-          flex: 1,
-          marginLeft: 220,
-          overflowY: 'auto',
-          padding: '40px 48px',
-          minHeight: '100vh',
-        }}>
-          {children}
-        </main>
+        <PortfolioProvider>
+          <Sidebar />
+          <main className="main-content" style={{
+            flex: 1,
+            marginLeft: 260,
+            overflowY: 'auto',
+            padding: '40px 48px',
+            minHeight: '100vh',
+          }}>
+            {children}
+          </main>
+        </PortfolioProvider>
       </body>
     </html>
   );

@@ -1,230 +1,201 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import SectionHeader from '@/components/SectionHeader';
 import McChart from '@/components/monte-carlo/McChart';
-import VarReadout from '@/components/monte-carlo/VarReadout';
+import MetricCard from '@/components/MetricCard';
 import { runSimulation, computeVarMetrics } from '@/components/monte-carlo/PathSimulator';
-import { ASSET_NAMES, type AssetName } from '@/lib/types';
+import { usePortfolio } from '@/lib/PortfolioContext';
+import { getVolatilities, stressCovariance } from '@/lib/math';
 import type { SimulationResult, VarMetrics } from '@/lib/types';
-import { formatINR } from '@/lib/math';
-
-const HORIZONS = [
-  { label: '21 days (1M)', value: 21 },
-  { label: '63 days (3M)', value: 63 },
-  { label: '126 days (6M)', value: 126 },
-  { label: '252 days (1Y)', value: 252 },
-];
-
-const SIM_COUNTS = [1000, 5000, 10000];
 
 export default function MonteCarloPage() {
-  const [selectedAssets, setSelectedAssets] = useState<AssetName[]>([...ASSET_NAMES]);
-  const [weights, setWeights] = useState<number[]>(new Array(ASSET_NAMES.length).fill(10));
-  const [nSims, setNSims] = useState(5000);
-  const [horizon, setHorizon] = useState(63);
-  const [initialValue, setInitialValue] = useState(1000000);
-  const [result, setResult] = useState<SimulationResult | null>(null);
-  const [varMetrics, setVarMetrics] = useState<VarMetrics | null>(null);
-  const [running, setRunning] = useState(false);
+  const { tickers, alpha, correlationMatrix, isAnalyzing } = usePortfolio();
+  
+  const [baselineSim, setBaselineSim] = useState<SimulationResult | null>(null);
+  const [stressedSim, setStressedSim] = useState<SimulationResult | null>(null);
+  const [baselineMetrics, setBaselineMetrics] = useState<VarMetrics | null>(null);
+  const [stressedMetrics, setStressedMetrics] = useState<VarMetrics | null>(null);
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
-  const normalizedWeights = useMemo(() => {
-    const activeWeights = ASSET_NAMES.map((name, i) =>
-      selectedAssets.includes(name) ? weights[i] : 0
-    );
-    const sum = activeWeights.reduce((s, w) => s + w, 0);
-    return sum > 0 ? activeWeights.map(w => w / sum) : activeWeights;
-  }, [selectedAssets, weights]);
+  const initialValue = 1000000;
+  const nSims = 5000;
+  const horizon = 63; // 3 months roughly
 
-  const handleToggleAsset = (asset: AssetName) => {
-    setSelectedAssets(prev =>
-      prev.includes(asset) ? prev.filter(a => a !== asset) : [...prev, asset]
-    );
-  };
+  useEffect(() => {
+    if (!tickers.length || !correlationMatrix?.length || isAnalyzing) return;
+    
+    setIsRecalculating(true);
+    
+    // Defer actual simulation to allow React to paint the 'Recalculating...' overlay
+    const timer = setTimeout(() => {
+      const vols = getVolatilities(tickers);
+      
+      const baselineCov = correlationMatrix.map((row, i) => 
+        row.map((val, j) => vols[i] * val * vols[j])
+      );
+      
+      const stressedCov = stressCovariance(alpha, vols, correlationMatrix);
 
-  const handleWeightChange = (index: number, value: number) => {
-    const newWeights = [...weights];
-    newWeights[index] = value;
-    setWeights(newWeights);
-  };
-
-  const handleRun = useCallback(() => {
-    setRunning(true);
-    // Use setTimeout to allow spinner to render
-    setTimeout(() => {
-      const active = selectedAssets;
-      const activeWeights = active.map(a => {
-        const i = ASSET_NAMES.indexOf(a);
-        return normalizedWeights[i];
-      });
-
-      const sim = runSimulation(active, activeWeights, nSims, horizon, initialValue);
-      const metrics = computeVarMetrics(sim, initialValue, horizon);
-
-      setResult(sim);
-      setVarMetrics(metrics);
-      setRunning(false);
+      const weights = new Array(tickers.length).fill(1 / tickers.length);
+      
+      const base = runSimulation(tickers, weights, nSims, horizon, initialValue, baselineCov);
+      const stress = runSimulation(tickers, weights, nSims, horizon, initialValue, stressedCov);
+      
+      setBaselineSim(base);
+      setStressedSim(stress);
+      
+      setBaselineMetrics(computeVarMetrics(base, initialValue, horizon));
+      setStressedMetrics(computeVarMetrics(stress, initialValue, horizon));
+      setIsRecalculating(false);
     }, 50);
-  }, [selectedAssets, normalizedWeights, nSims, horizon, initialValue]);
 
-  const handleExportCSV = () => {
-    if (!result) return;
-    const headers = ['Day', 'P5', 'Median', 'P95'].join(',');
-    const rows = result.percentile5.map((_, t) =>
-      [t, result.percentile5[t].toFixed(2), result.percentile50[t].toFixed(2), result.percentile95[t].toFixed(2)].join(',')
-    );
-    const csv = [headers, ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'monte_carlo_results.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+    return () => clearTimeout(timer);
+  }, [tickers, alpha, correlationMatrix, isAnalyzing]);
 
   return (
-    <div>
+    <div style={{ position: 'relative', minHeight: '100%' }}>
       <SectionHeader
-        label="MODULE 02"
+        label="MODULE 03"
         title="Monte Carlo Simulation"
-        description="Geometric Brownian Motion portfolio simulation with Cholesky-correlated asset paths, VaR, CVaR, and Sharpe analysis."
+        description="Stochastic differential equations (GBM) for multivariate returns with Cholesky-decomposed covariance inputs."
       />
 
-      {/* Controls Bar */}
-      <div style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 24,
-        padding: '20px 24px',
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 8,
-        marginBottom: 24,
-        alignItems: 'flex-start',
-      }}>
-        {/* Asset selector */}
-        <div style={{ flex: '1 1 auto', minWidth: 300 }}>
-          <label style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--ink-muted)', display: 'block', marginBottom: 8 }}>
-            Assets
-          </label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {ASSET_NAMES.map(name => (
-              <label key={name} style={{
-                display: 'flex', alignItems: 'center', gap: 4, fontSize: 12,
-                cursor: 'pointer', color: selectedAssets.includes(name) ? 'var(--ink)' : 'var(--ink-muted)',
-              }}>
-                <input
-                  type="checkbox"
-                  checked={selectedAssets.includes(name)}
-                  onChange={() => handleToggleAsset(name)}
-                  style={{ accentColor: 'var(--gold)' }}
-                />
-                {name}
-              </label>
-            ))}
-          </div>
+      {(isAnalyzing || isRecalculating) && (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(250,248,244,0.8)',
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: 13,
+          color: 'var(--ink-muted)'
+        }}>
+          <div className="spinner" style={{ marginBottom: 16 }} />
+          Recalculating...
         </div>
+      )}
 
-        {/* Simulation params */}
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div>
-            <label style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--ink-muted)', display: 'block', marginBottom: 4 }}>
-              Simulations
-            </label>
-            <select value={nSims} onChange={e => setNSims(Number(e.target.value))}>
-              {SIM_COUNTS.map(n => (<option key={n} value={n}>{n.toLocaleString()}</option>))}
-            </select>
-          </div>
-          <div>
-            <label style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--ink-muted)', display: 'block', marginBottom: 4 }}>
-              Horizon
-            </label>
-            <select value={horizon} onChange={e => setHorizon(Number(e.target.value))}>
-              {HORIZONS.map(h => (<option key={h.value} value={h.value}>{h.label}</option>))}
-            </select>
-          </div>
-          <div>
-            <label style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--ink-muted)', display: 'block', marginBottom: 4 }}>
-              Initial Value
-            </label>
-            <input
-              type="number"
-              value={initialValue}
-              onChange={e => setInitialValue(Number(e.target.value))}
-              style={{ width: 130 }}
+      {!tickers.length && !isAnalyzing && (
+        <div style={{ padding: 20, color: 'var(--ink-muted)' }}>
+          Please select at least 1 asset to run Monte Carlo simulations.
+        </div>
+      )}
+
+      {baselineMetrics && stressedMetrics && baselineSim && stressedSim && tickers.length > 0 && (
+        <>
+          {/* Main Chart */}
+          <div style={{
+            background: 'white',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            padding: '32px',
+            marginBottom: 32,
+          }}>
+            <h3 style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: 22,
+              fontWeight: 400,
+              marginBottom: 32,
+            }}>
+              Core Simulation Results: Baseline vs Stressed Regime
+            </h3>
+            <McChart 
+              baselineFinalValues={baselineSim.finalValues} 
+              stressedFinalValues={stressedSim.finalValues}
+              initialValue={initialValue} 
             />
           </div>
-        </div>
 
-        {/* Buttons */}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-          <button className="btn-primary" onClick={handleRun} disabled={running || selectedAssets.length === 0}>
-            {running ? 'Running...' : 'Run Simulation'}
-          </button>
-          <button className="btn-outline" onClick={handleExportCSV} disabled={!result}>
-            Export CSV
-          </button>
-        </div>
-      </div>
-
-      {/* Weight Sliders */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-        gap: 12,
-        marginBottom: 24,
-      }}>
-        {ASSET_NAMES.map((name, i) => {
-          if (!selectedAssets.includes(name)) return null;
-          return (
-            <div key={name} style={{
-              padding: '10px 14px',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 4,
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ fontSize: 11, fontWeight: 500 }}>{name}</span>
-                <span className="font-num" style={{ fontSize: 11, color: 'var(--gold)' }}>
-                  {(normalizedWeights[i] * 100).toFixed(1)}%
-                </span>
+          <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', marginBottom: 48 }}>
+            <div style={{ flex: '1 1 45%' }}>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--ink-muted)', marginBottom: 20 }}>
+                Baseline Metrics (α=0)
               </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={weights[i]}
-                onChange={e => handleWeightChange(i, Number(e.target.value))}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <MetricCard label="95% Value at Risk" value={`₹${baselineMetrics.var95.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} color="var(--ink)" />
+                <MetricCard label="95% Expected Shortfall" value={`₹${baselineMetrics.cvar95.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} color="var(--risk-red)" subtext="Avg loss beyond VaR" />
+                <MetricCard label="Prob. of Loss" value={`${baselineMetrics.probLoss.toFixed(1)}%`} />
+                <MetricCard label="Expected Return" value={`₹${baselineMetrics.expectedReturn.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} color="var(--risk-green)" />
+              </div>
             </div>
-          );
-        })}
-      </div>
 
-      {/* Loading Spinner */}
-      {running && (
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: 400,
-        }}>
-          <div className="spinner" />
-        </div>
+            <div style={{ flex: '1 1 45%' }}>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--ink-muted)', marginBottom: 20 }}>
+                Stressed Metrics (α={alpha.toFixed(2)})
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <MetricCard label="95% Value at Risk" value={`₹${stressedMetrics.var95.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} color="var(--ink)" />
+                <MetricCard label="95% Expected Shortfall" value={`₹${stressedMetrics.cvar95.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} color="var(--risk-red)" subtext="Avg loss beyond VaR" />
+                <MetricCard label="Prob. of Loss" value={`${stressedMetrics.probLoss.toFixed(1)}%`} />
+                <MetricCard label="Expected Return" value={`₹${stressedMetrics.expectedReturn.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} color="var(--risk-green)" />
+              </div>
+            </div>
+          </div>
+
+          {/* Risk Metrics Table */}
+          <div style={{ marginBottom: 48 }}>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, marginBottom: 24 }}>Risk Concentration Metrics</h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
+              <thead>
+                <tr style={{ background: 'var(--surface)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
+                  <th style={{ padding: '16px', fontSize: 13, color: 'var(--ink-muted)' }}>Metric</th>
+                  <th style={{ padding: '16px', fontSize: 13, color: 'var(--ink-muted)' }}>Baseline</th>
+                  <th style={{ padding: '16px', fontSize: 13, color: 'var(--ink-muted)' }}>Stressed</th>
+                  <th style={{ padding: '16px', fontSize: 13, color: 'var(--ink-muted)' }}>Delta</th>
+                </tr>
+              </thead>
+              <tbody style={{ fontSize: 14 }}>
+                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                  <td style={{ padding: '16px', fontWeight: 500 }}>VaR (95%)</td>
+                  <td style={{ padding: '16px', fontFamily: 'JetBrains Mono' }}>₹{baselineMetrics.var95.toLocaleString()}</td>
+                  <td style={{ padding: '16px', fontFamily: 'JetBrains Mono' }}>₹{stressedMetrics.var95.toLocaleString()}</td>
+                  <td style={{ padding: '16px', color: 'var(--risk-red)', fontFamily: 'JetBrains Mono' }}>+{((stressedMetrics.var95 / (baselineMetrics.var95 || 1) - 1) * 100).toFixed(1)}%</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                  <td style={{ padding: '16px', fontWeight: 500 }}>Expected Shortfall</td>
+                  <td style={{ padding: '16px', fontFamily: 'JetBrains Mono' }}>₹{baselineMetrics.cvar95.toLocaleString()}</td>
+                  <td style={{ padding: '16px', fontFamily: 'JetBrains Mono' }}>₹{stressedMetrics.cvar95.toLocaleString()}</td>
+                  <td style={{ padding: '16px', color: 'var(--risk-red)', fontFamily: 'JetBrains Mono' }}>+{((stressedMetrics.cvar95 / (baselineMetrics.cvar95 || 1) - 1) * 100).toFixed(1)}%</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '16px', fontWeight: 500 }}>Sharpe Ratio</td>
+                  <td style={{ padding: '16px', fontFamily: 'JetBrains Mono' }}>{baselineMetrics.sharpeRatio.toFixed(2)}</td>
+                  <td style={{ padding: '16px', fontFamily: 'JetBrains Mono' }}>{stressedMetrics.sharpeRatio.toFixed(2)}</td>
+                  <td style={{ padding: '16px', color: 'var(--risk-red)', fontFamily: 'JetBrains Mono' }}>{-( (1 - stressedMetrics.sharpeRatio / (baselineMetrics.sharpeRatio || 1)) * 100).toFixed(1)}%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Diversification Analysis */}
+          <div style={{ background: 'rgba(201,168,76,0.05)', border: '1px solid var(--gold)', borderRadius: 12, padding: '32px' }}>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, marginBottom: 16 }}>Diversification Entropy Analysis</h3>
+            <p style={{ fontSize: 15, color: 'var(--ink)', lineHeight: 1.7, maxWidth: 800 }}>
+              Under baseline conditions, the portfolio exhibits a robust diversification structure with the effective number of bets approaching the asset count. 
+              However, as the stress parameter α increases to <strong>{alpha.toFixed(2)}</strong>, the correlation structure collapses toward the first principal component. 
+              The simulation shows a <strong>{((stressedMetrics.var95 / (baselineMetrics.var95 || 1) - 1) * 100).toFixed(0)}%</strong> expansion in tail risk, 
+              as previously non-correlated assets begin to move in lock-step, effectively nullifying the protection of the traditional efficient frontier.
+            </p>
+          </div>
+        </>
       )}
 
-      {/* Chart */}
-      {result && !running && (
-        <McChart result={result} nSims={nSims} horizonDays={horizon} />
-      )}
-
-      {/* VaR Metrics */}
-      {varMetrics && !running && (
-        <div style={{ marginTop: 24 }}>
-          <VarReadout metrics={varMetrics} initialValue={initialValue} />
-        </div>
-      )}
+      <style dangerouslySetInnerHTML={{__html: `
+        .spinner {
+          width: 24px;
+          height: 24px;
+          border: 3px solid var(--border);
+          border-top-color: var(--gold);
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+      `}} />
     </div>
   );
 }

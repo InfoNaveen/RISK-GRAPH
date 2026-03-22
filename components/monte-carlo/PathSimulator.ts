@@ -1,51 +1,25 @@
 // ─── Path Simulator — GBM Monte Carlo with Cholesky ────────────────
 // Pure TypeScript math, no React.
 
-import { ASSET_NAMES, ASSET_PARAMS, type AssetName } from '@/lib/types';
-import {
-  CORRELATION_MATRIX,
-  choleskyDecomposition,
-  generateNormals,
-} from '@/lib/math';
+import { choleskyDecomposition, generateNormals, getDrifts } from '@/lib/math';
 import type { SimulationResult, VarMetrics } from '@/lib/types';
 
-// Build covariance matrix from correlation + vols
-function buildCovarianceMatrix(): number[][] {
-  const n = ASSET_NAMES.length;
-  const cov: number[][] = [];
-  for (let i = 0; i < n; i++) {
-    cov[i] = [];
-    for (let j = 0; j < n; j++) {
-      const vi = ASSET_PARAMS[ASSET_NAMES[i]].sigma;
-      const vj = ASSET_PARAMS[ASSET_NAMES[j]].sigma;
-      cov[i][j] = CORRELATION_MATRIX[i][j] * vi * vj;
-    }
-  }
-  return cov;
-}
-
 export function runSimulation(
-  selectedAssets: AssetName[],
+  selectedAssets: string[],
   weights: number[],        // must sum to 1
   nSimulations: number,
   horizonDays: number,
   initialValue: number,
+  covMatrix: number[][]
 ): SimulationResult {
   const n = selectedAssets.length;
   const dt = 1 / 252; // daily
 
-  // Get params for selected assets only
-  const mus = selectedAssets.map(a => ASSET_PARAMS[a].mu);
-  const sigmas = selectedAssets.map(a => ASSET_PARAMS[a].sigma);
+  const mus = getDrifts(selectedAssets);
+  const sigmas = covMatrix.map((row, i) => Math.sqrt(Math.max(0, row[i])));
 
-  // Build sub-correlation matrix for selected assets
-  const indices = selectedAssets.map(a => ASSET_NAMES.indexOf(a));
-  const subCorr: number[][] = indices.map(i =>
-    indices.map(j => CORRELATION_MATRIX[i][j])
-  );
-
-  // Cholesky of correlation matrix
-  const L = choleskyDecomposition(subCorr);
+  // Cholesky of covariance matrix
+  const L = choleskyDecomposition(covMatrix);
 
   const paths: number[][] = [];
   const finalValues: number[] = [];
@@ -55,7 +29,7 @@ export function runSimulation(
     const path: number[] = [initialValue];
 
     for (let t = 0; t < horizonDays; t++) {
-      // Generate correlated normals
+      // Generate correlated normals (scaled by cov)
       const z = generateNormals(n);
       const correlatedZ = L.map(row =>
         row.reduce((s, val, j) => s + val * z[j], 0)
@@ -64,7 +38,7 @@ export function runSimulation(
       // GBM step for each asset
       for (let i = 0; i < n; i++) {
         const drift = (mus[i] - 0.5 * sigmas[i] * sigmas[i]) * dt;
-        const diffusion = sigmas[i] * Math.sqrt(dt) * correlatedZ[i];
+        const diffusion = Math.sqrt(dt) * correlatedZ[i];
         assetPrices[i] *= Math.exp(drift + diffusion);
       }
 
@@ -112,7 +86,7 @@ export function computeVarMetrics(
   // CVaR = average of losses worse than VaR
   const cutoff = Math.floor(n * 0.05);
   const worstLosses = sorted.slice(0, cutoff).map(v => -(v - initialValue));
-  const cvar95 = worstLosses.reduce((s, v) => s + v, 0) / worstLosses.length;
+  const cvar95 = worstLosses.length > 0 ? worstLosses.reduce((s, v) => s + v, 0) / worstLosses.length : 0;
 
   // Expected return
   const meanFinal = finalValues.reduce((s, v) => s + v, 0) / n;

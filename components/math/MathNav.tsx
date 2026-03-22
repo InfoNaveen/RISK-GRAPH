@@ -12,6 +12,8 @@ const SECTIONS = [
   { id: 'sec-7', label: '7. Contagion Dynamics' },
   { id: 'sec-8', label: '8. Risk Measures' },
   { id: 'sec-9', label: '9. Efficient Frontier' },
+  { id: 'sec-10', label: '10. Portfolio Attribution' },
+  { id: 'sec-11', label: '11. Drawdown Analysis' },
 ];
 
 export default function MathNav() {

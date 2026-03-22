@@ -96,12 +96,12 @@ export interface Liabilities {
 
 export const ASSET_NAMES = [
   'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK',
-  'AXISBANK', 'SBIN', 'WIPRO', 'LT', 'MARUTI'
+  'AXISBANK', 'SBIN', 'WIPRO', 'LT', 'MARUTI',
+  'Gold', 'Silver', 'RealEstate'
 ] as const;
 
 export type AssetName = typeof ASSET_NAMES[number];
 
-// Realistic NSE prices (approx Mar 2025)
 export const DEFAULT_PRICES: Record<AssetName, number> = {
   RELIANCE: 2950,
   TCS: 4020,
@@ -113,6 +113,9 @@ export const DEFAULT_PRICES: Record<AssetName, number> = {
   WIPRO: 485,
   LT: 3540,
   MARUTI: 12600,
+  Gold: 6200,
+  Silver: 75,
+  RealEstate: 8500,
 };
 
 export const ASSET_PARAMS: Record<AssetName, AssetParams> = {
@@ -126,6 +129,16 @@ export const ASSET_PARAMS: Record<AssetName, AssetParams> = {
   WIPRO:     { mu: 0.16, sigma: 0.25 },
   LT:        { mu: 0.13, sigma: 0.24 },
   MARUTI:    { mu: 0.15, sigma: 0.27 },
+  Gold:       { mu: 0.11, sigma: 0.16 },
+  Silver:     { mu: 0.08, sigma: 0.22 },
+  RealEstate: { mu: 0.09, sigma: 0.12 },
+};
+
+export const ASSET_COLORS: Record<string, string> = {
+  RELIANCE: '#3B82F6', TCS: '#8B5CF6', HDFCBANK: '#10B981', INFY: '#F59E0B',
+  ICICIBANK: '#EF4444', AXISBANK: '#EC4899', SBIN: '#14B8A6', WIPRO: '#F97316',
+  LT: '#6366F1', MARUTI: '#84CC16',
+  Gold: '#D4AF37', Silver: '#A8A9AD', RealEstate: '#8B7355',
 };
 
 export const GOLD_PRICE_PER_GRAM = 6200;
