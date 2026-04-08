@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Share2, TrendingUp, Zap, PieChart, Receipt, BookOpen, BarChart2, HelpCircle, Settings, X, Compass, Layers, Activity, ShieldAlert, AlertTriangle, Brain, Shield } from 'lucide-react';
+import { Share2, TrendingUp, Zap, PieChart, Receipt, BookOpen, BarChart2, HelpCircle, Settings, X, Compass, Layers, Activity, ShieldAlert, AlertTriangle, Brain, Shield, ShieldCheck } from 'lucide-react';
 import { usePortfolio } from '@/lib/PortfolioContext';
 
 const navGroups = [
@@ -11,6 +11,7 @@ const navGroups = [
     title: 'AI INTELLIGENCE',
     items: [
       { href: '/intelligence', label: 'Intelligence', icon: Brain },
+      { href: '/compliance', label: 'Compliance', icon: ShieldCheck },
       { href: '/regime', label: 'Regime', icon: Activity },
       { href: '/anomaly', label: 'Anomaly', icon: AlertTriangle },
       { href: '/forecast', label: 'Forecast', icon: TrendingUp },

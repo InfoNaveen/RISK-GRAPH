@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { scanPrompt } from '@/lib/security/prompt-guard';
 import { logEvent } from '@/lib/security/audit-logger';
+import { isKillSwitchActive } from '@/lib/security/kill-switch';
 import OpenAI from 'openai';
 
 interface AnalystRequestBody {
@@ -10,6 +11,16 @@ interface AnalystRequestBody {
 
 export async function POST(request: NextRequest) {
   try {
+    // Kill switch check — SEBI Algo Framework Aug 2025
+    if (isKillSwitchActive()) {
+      return NextResponse.json({
+        blocked: true,
+        killSwitchActive: true,
+        reason: ['AI Kill Switch is active — all AI predictions suspended per SEBI Algo Framework Aug 2025 kill switch protocol'],
+        threatLevel: 'none',
+      }, { status: 503 });
+    }
+
     const body: AnalystRequestBody = await request.json();
     const { userQuery, portfolioContext } = body;
 
