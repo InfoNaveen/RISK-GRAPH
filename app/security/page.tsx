@@ -6,6 +6,7 @@ import type { AuditEntry } from '@/lib/security/audit-logger';
 import type { IntegrityReport } from '@/lib/security/model-integrity';
 import { checkModelIntegrity } from '@/lib/security/model-integrity';
 import { SYMBOLS } from '@/lib/data/ingestion';
+import type { BlockchainAnchor } from '@/lib/blockchain/anchor';
 
 interface AuditState {
   log: AuditEntry[];
@@ -31,7 +32,28 @@ export default function SecurityPage() {
   const [scanCount, setScanCount] = useState(0);
   const [blockedCount, setBlockedCount] = useState(0);
   const [avgConfidence, setAvgConfidence] = useState(0);
+  const [anchorResult, setAnchorResult] = useState<BlockchainAnchor | null>(null);
+  const [anchoring, setAnchoring] = useState(false);
+  const [anchorError, setAnchorError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const handleAnchor = async () => {
+    setAnchoring(true);
+    setAnchorError(null);
+    try {
+      const res = await fetch('/api/blockchain/anchor', { method: 'POST' });
+      const data = await res.json();
+      if (data.success && data.anchor) {
+        setAnchorResult(data.anchor);
+      } else {
+        setAnchorError(data.error ?? 'Anchor failed');
+      }
+    } catch (err: unknown) {
+      setAnchorError(err instanceof Error ? err.message : 'Network error');
+    } finally {
+      setAnchoring(false);
+    }
+  };
 
   const fetchAuditLog = useCallback(async () => {
     try {
@@ -381,17 +403,53 @@ export default function SecurityPage() {
               <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, color: 'var(--cream)', margin: 0 }}>
                 Immutable Audit Log
               </h3>
-              <span style={{
-                fontSize: 10,
-                padding: '2px 8px',
-                borderRadius: 3,
-                background: auditState.integrity.intact ? 'rgba(26,107,60,0.15)' : 'rgba(192,57,43,0.15)',
-                color: auditState.integrity.intact ? 'var(--risk-green)' : 'var(--risk-red)',
-                fontWeight: 500,
-              }}>
-                {auditState.integrity.intact ? '✅ Intact' : '⚠️ Tampered'}
-              </span>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{
+                  fontSize: 10,
+                  padding: '2px 8px',
+                  borderRadius: 3,
+                  background: auditState.integrity.intact ? 'rgba(26,107,60,0.15)' : 'rgba(192,57,43,0.15)',
+                  color: auditState.integrity.intact ? 'var(--risk-green)' : 'var(--risk-red)',
+                  fontWeight: 500,
+                }}>
+                  {auditState.integrity.intact ? '✅ Intact' : '⚠️ Tampered'}
+                </span>
+                <button
+                  onClick={handleAnchor}
+                  disabled={anchoring || auditState.log.length === 0}
+                  style={{
+                    background: 'var(--gold)',
+                    color: 'var(--ink)',
+                    border: 'none',
+                    borderRadius: 4,
+                    padding: '4px 10px',
+                    fontSize: 10,
+                    fontWeight: 600,
+                    cursor: anchoring || auditState.log.length === 0 ? 'not-allowed' : 'pointer',
+                    opacity: anchoring || auditState.log.length === 0 ? 0.6 : 1,
+                  }}
+                >
+                  {anchoring ? '⏳ Anchoring...' : '⛓️ Anchor to Blockchain'}
+                </button>
+              </div>
             </div>
+
+            {/* ANCHOR STATE DISPLAY */}
+            {anchorError && (
+              <div style={{ padding: '8px', background: 'rgba(192,57,43,0.1)', border: '1px solid var(--risk-red)', borderRadius: 4, marginBottom: 12, fontSize: 11, color: 'var(--risk-red)' }}>
+                {anchorError}
+              </div>
+            )}
+            {anchorResult && (
+              <div style={{ padding: '8px', background: 'rgba(26,107,60,0.1)', border: '1px solid var(--risk-green)', borderRadius: 4, marginBottom: 12 }}>
+                <div style={{ fontSize: 11, color: 'var(--risk-green)', fontWeight: 600, marginBottom: 4 }}>✅ ANCHORED — POLYGON AMOY</div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: 'var(--cream)', wordBreak: 'break-all' }}>Tx: {anchorResult.txHash}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: 'var(--ink-muted)' }}>{anchorResult.timestamp}</div>
+                  <a href={anchorResult.explorerUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'var(--gold)', textDecoration: 'underline' }}>View on Explorer</a>
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {lastEntries.length === 0 && (
