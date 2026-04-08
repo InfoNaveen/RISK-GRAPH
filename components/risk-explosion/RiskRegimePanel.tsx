@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { usePortfolio } from '@/lib/PortfolioContext';
-import { getVolatilities, stressCovariance, portfolioVariance } from '@/lib/math';
+import { getVolatilities, getCorrelationSubMatrix, stressCovariance, portfolioVariance } from '@/lib/math';
 
 export default function RiskRegimePanel() {
   const { alpha, beta, tickers, portfolioWeights, lambdaMax } = usePortfolio();
@@ -13,14 +13,15 @@ export default function RiskRegimePanel() {
     
     const vols = getVolatilities(tickers);
     const weightArray = tickers.map(t => weights[t] || 0);
+    const corrSub = getCorrelationSubMatrix(tickers);
     
     // Baseline
-    const covBase = stressCovariance(0, vols);
-    const volBase = Math.sqrt(portfolioVariance(weightArray, covBase)) * Math.sqrt(252);
+    const covBase = stressCovariance(0, vols, corrSub);
+    const volBase = Math.sqrt(Math.max(0, portfolioVariance(weightArray, covBase))) * Math.sqrt(252);
     
     // Current Alpha
-    const covAlpha = stressCovariance(alpha, vols);
-    const volAlpha = Math.sqrt(portfolioVariance(weightArray, covAlpha)) * Math.sqrt(252);
+    const covAlpha = stressCovariance(alpha, vols, corrSub);
+    const volAlpha = Math.sqrt(Math.max(0, portfolioVariance(weightArray, covAlpha))) * Math.sqrt(252);
     
     // Avg Correl
     let sumCorr = 0;

@@ -1,177 +1,348 @@
 'use client';
 
-import { useMemo } from 'react';
-import { usePathname } from 'next/navigation';
-import SectionHeader from '@/components/SectionHeader';
-import { usePortfolio } from '@/lib/PortfolioContext';
-import {
-  eigenvectorCentrality,
-  betweennessCentrality,
-  computeGSVI,
-  spectralRiskRatio,
-  portfolioVariance,
-  getVolatilities,
-  stressCovariance
-} from '@/lib/math';
-import { Activity, ShieldAlert, TrendingDown, Layers, Share2, BarChart2, Zap, PieChart, Receipt, BookOpen } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
+import { 
+  Brain, Activity, AlertTriangle, TrendingUp, Shield,
+  Share2, Zap, BarChart2, PieChart, Receipt, BookOpen,
+  ArrowRight,
+} from 'lucide-react';
 
-const navItems = [
-  { href: '/network', label: 'Network', icon: Share2 },
-  { href: '/prices', label: 'Prices', icon: BarChart2 },
-  { href: '/monte-carlo', label: 'Monte Carlo', icon: Activity },
-  { href: '/stress', label: 'Stress', icon: Zap },
-  { href: '/networth', label: 'Net Worth', icon: PieChart },
-  { href: '/tax', label: 'Tax', icon: Receipt },
-  { href: '/math', label: 'Math', icon: BookOpen },
+function AnimatedCounter({ target, duration = 1500 }: { target: number; duration?: number }) {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const started = useRef(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !started.current) {
+          started.current = true;
+          const startTime = performance.now();
+          const animate = (currentTime: number) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            setCount(Math.round(target * eased));
+            if (progress < 1) requestAnimationFrame(animate);
+          };
+          requestAnimationFrame(animate);
+        }
+      },
+      { threshold: 0.5 }
+    );
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [target, duration]);
+
+  return <div ref={ref}>{count}</div>;
+}
+
+const modules = [
+  { num: '01', name: 'Network Graph', href: '/network', icon: Share2, desc: 'Asset correlation topology & systemic risk', tech: 'D3-Force · Brandes · GSVI', isNew: false },
+  { num: '02', name: 'Stress Testing', href: '/stress', icon: Zap, desc: 'PSD-safe correlation regime shifts', tech: 'Cholesky · Eigenvalue · Contagion', isNew: false },
+  { num: '03', name: 'Monte Carlo', href: '/monte-carlo', icon: BarChart2, desc: '10,000-path GBM simulation engine', tech: 'Box-Muller · Correlated Paths · VaR', isNew: false },
+  { num: '04', name: 'AI Intelligence', href: '/intelligence', icon: Brain, desc: '4 ML models running on live data', tech: 'HMM · K-Means · IF · OLS', isNew: true },
+  { num: '05', name: 'Regime Detector', href: '/regime', icon: Activity, desc: 'Market state decoding via HMM', tech: 'Baum-Welch EM · Viterbi', isNew: true },
+  { num: '06', name: 'Anomaly Scanner', href: '/anomaly', icon: AlertTriangle, desc: 'Unsupervised market anomaly detection', tech: 'Isolation Forest · 100 Trees', isNew: true },
+  { num: '07', name: 'Vol Forecast', href: '/forecast', icon: TrendingUp, desc: 'Next-day volatility prediction', tech: 'OLS · Normal Equations · CI', isNew: true },
+  { num: '08', name: 'Security SOC', href: '/security', icon: Shield, desc: 'Live adversarial defense system', tech: 'PromptGuard · Audit · Integrity', isNew: true },
+  { num: '09', name: 'Tax Calculator', href: '/tax', icon: Receipt, desc: 'FY2025-26 Indian tax computation', tech: 'Old vs New Regime · HRA', isNew: false },
 ];
 
-export default function DashboardPage() {
-  const { tickers, correlationMatrix, alpha, beta, isAnalyzing, lambdaMax } = usePortfolio();
-  const pathname = usePathname();
-
-  const metrics = useMemo(() => {
-    if (!correlationMatrix || !tickers.length || correlationMatrix.length !== tickers.length) return null;
-
-    const eigCent = eigenvectorCentrality(correlationMatrix);
-    const betCent = betweennessCentrality(correlationMatrix);
-    const gsvi = computeGSVI(eigCent, betCent);
-    const srr = spectralRiskRatio(correlationMatrix);
-
-    const vols = getVolatilities(tickers);
-    const equalWeights = new Array(tickers.length).fill(1 / tickers.length);
-    const baseCov = stressCovariance(0, vols, correlationMatrix);
-    const stressCov = stressCovariance(alpha, vols, correlationMatrix);
-
-    const baseVol = Math.sqrt(portfolioVariance(equalWeights, baseCov)) * Math.sqrt(252);
-    const stressVol = Math.sqrt(portfolioVariance(equalWeights, stressCov)) * Math.sqrt(252);
-
-    return { gsvi, srr, baseVol, stressVol };
-  }, [tickers, correlationMatrix, alpha]);
-
+export default function HomePage() {
   return (
-    <div style={{ opacity: isAnalyzing ? 0.5 : 1, transition: 'opacity 0.2s', pointerEvents: isAnalyzing ? 'none' : 'auto' }}>
-      {/* Horizontal Tab Bar */}
-      <div style={{ 
-        display: 'flex', 
-        gap: 8, 
-        marginBottom: 40, 
-        padding: '6px', 
-        background: 'rgba(0,0,0,0.03)', 
-        borderRadius: 12, 
-        width: 'fit-content' 
-      }}>
-        <Link href="/" style={{
-          textDecoration: 'none',
-          padding: '10px 20px',
-          borderRadius: 8,
-          fontSize: 13,
-          fontWeight: 500,
-          background: pathname === '/' ? 'var(--gold)' : 'transparent',
-          color: pathname === '/' ? 'var(--ink)' : 'var(--ink-muted)',
-          transition: 'all 0.2s'
+    <div>
+      {/* HERO SECTION */}
+      <div style={{ marginBottom: 60, maxWidth: 700 }}>
+        <h1 style={{
+          fontFamily: "'Playfair Display', serif",
+          fontSize: 42,
+          fontWeight: 400,
+          color: 'var(--ink)',
+          lineHeight: 1.15,
+          margin: '0 0 16px 0',
         }}>
-          Overview
-        </Link>
-        {navItems.map(item => (
-          <Link key={item.href} href={item.href} style={{
-            textDecoration: 'none',
-            padding: '10px 20px',
+          Financial AI that knows{' '}
+          <span style={{ color: 'var(--gold)' }}>when it&apos;s being attacked.</span>
+        </h1>
+        <p style={{
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: 16,
+          color: 'var(--ink-muted)',
+          lineHeight: 1.6,
+          margin: 0,
+          maxWidth: 560,
+        }}>
+          RiskGraph 3.0 — 4 ML models · Adversarial defense · Live NSE data · Every prediction mathematically auditable
+        </p>
+      </div>
+
+      {/* STAT CARDS */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 20, marginBottom: 60 }}>
+        {[
+          { value: 4, label: 'ML Models', suffix: '' },
+          { value: 19, label: 'Mathematical Formulas', suffix: '' },
+          { value: 10, label: 'Live NSE Assets', suffix: '' },
+          { value: 100, label: 'Predictions Auditable', suffix: '%' },
+        ].map((stat) => (
+          <div key={stat.label} style={{
+            background: 'var(--ink)',
+            border: '1px solid var(--gold)',
             borderRadius: 8,
-            fontSize: 13,
-            fontWeight: 500,
-            background: pathname === item.href ? 'var(--gold)' : 'transparent',
-            color: pathname === item.href ? 'var(--ink)' : 'var(--ink-muted)',
-            transition: 'all 0.2s'
+            padding: '24px 20px',
+            textAlign: 'center',
           }}>
-            {item.label}
-          </Link>
+            <div style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 36,
+              fontWeight: 300,
+              color: 'var(--gold)',
+              lineHeight: 1,
+              marginBottom: 8,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'baseline',
+            }}>
+              <AnimatedCounter target={stat.value} />
+              {stat.suffix && <span>{stat.suffix}</span>}
+            </div>
+            <div style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 11,
+              color: 'var(--cream)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+            }}>
+              {stat.label}
+            </div>
+          </div>
         ))}
       </div>
 
-      <SectionHeader
-        label="OVERVIEW"
-        title="RiskGraph Dashboard"
-        description="Comprehensive summary of portfolio systemic risk and contagion vulnerability."
-      />
-
-      {/* Metrics Row */}
-      {metrics && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 24, marginBottom: 40 }}>
-          <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 8, padding: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <div style={{ background: 'rgba(201,168,76,0.1)', padding: 8, borderRadius: 8 }}>
-                <Activity size={20} color="var(--gold)" />
+      {/* MODULE GRID */}
+      <h2 style={{
+        fontFamily: "'Playfair Display', serif",
+        fontSize: 24,
+        fontWeight: 400,
+        color: 'var(--ink)',
+        marginBottom: 24,
+      }}>
+        Deep Dive Modules
+      </h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20, marginBottom: 60 }}>
+        {modules.map((mod) => {
+          const Icon = mod.icon;
+          return (
+            <Link key={mod.href} href={mod.href} style={{ textDecoration: 'none' }}>
+              <div className="card-hover" style={{
+                background: 'white',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                padding: 24,
+                height: '100%',
+                transition: 'all 0.2s',
+                position: 'relative',
+              }}>
+                {mod.isNew && (
+                  <span style={{
+                    position: 'absolute',
+                    top: 12,
+                    right: 12,
+                    padding: '2px 8px',
+                    borderRadius: 3,
+                    fontSize: 9,
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    background: 'rgba(201,168,76,0.15)',
+                    color: 'var(--gold)',
+                  }}>
+                    NEW
+                  </span>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                  <span style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 11,
+                    color: 'var(--gold)',
+                    fontWeight: 500,
+                  }}>
+                    {mod.num}
+                  </span>
+                  <Icon size={18} color="var(--ink)" strokeWidth={1.5} />
+                </div>
+                <h3 style={{
+                  fontSize: 16,
+                  color: 'var(--ink)',
+                  margin: '0 0 6px 0',
+                  fontWeight: 500,
+                }}>
+                  {mod.name}
+                </h3>
+                <p style={{
+                  fontSize: 13,
+                  color: 'var(--ink-muted)',
+                  margin: '0 0 8px 0',
+                  lineHeight: 1.4,
+                }}>
+                  {mod.desc}
+                </p>
+                <div style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 10,
+                  color: 'var(--gold)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}>
+                  {mod.tech}
+                  <ArrowRight size={10} />
+                </div>
               </div>
-              <div style={{ fontSize: 13, color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Systemic Risk (GSVI)</div>
-            </div>
-            <div style={{ fontSize: 28, fontFamily: "'JetBrains Mono', monospace", color: 'var(--ink)' }}>
-              {metrics.gsvi.toFixed(3)}
-            </div>
-          </div>
-
-          <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 8, padding: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <div style={{ background: 'rgba(52,199,89,0.1)', padding: 8, borderRadius: 8 }}>
-                <Layers size={20} color="var(--risk-green)" />
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Spectral Concentration</div>
-            </div>
-            <div style={{ fontSize: 28, fontFamily: "'JetBrains Mono', monospace", color: 'var(--ink)' }}>
-              {metrics.srr.toFixed(3)}
-            </div>
-          </div>
-
-          <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 8, padding: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <div style={{ background: 'rgba(192,57,43,0.1)', padding: 8, borderRadius: 8 }}>
-                <ShieldAlert size={20} color="var(--risk-red)" />
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Contagion Threshold</div>
-            </div>
-            <div style={{ fontSize: 28, fontFamily: "'JetBrains Mono', monospace", color: beta >= (lambdaMax ? 1/lambdaMax : Infinity) ? 'var(--risk-red)' : 'var(--ink)' }}>
-              {lambdaMax ? (1 / lambdaMax).toFixed(4) : '—'}
-            </div>
-          </div>
-
-          <div style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 8, padding: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <div style={{ background: 'rgba(0,122,255,0.1)', padding: 8, borderRadius: 8 }}>
-                <TrendingDown size={20} color="#007AFF" />
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Expected Volatility</div>
-            </div>
-            <div style={{ fontSize: 28, fontFamily: "'JetBrains Mono', monospace", color: 'var(--ink)' }}>
-              {(metrics.baseVol * 100).toFixed(1)}% <span style={{ fontSize: 14, color: 'var(--ink-muted)' }}>→ {(metrics.stressVol * 100).toFixed(1)}%</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quick Links */}
-      <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, marginBottom: 20 }}>Deep Dive Modules</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
-        <Link href="/network" style={{ textDecoration: 'none' }}>
-          <div className="card-hover" style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 8, padding: 24, height: '100%', transition: 'all 0.2s' }}>
-            <h4 style={{ fontSize: 16, color: 'var(--ink)', marginBottom: 8 }}>Network Graph Analysis</h4>
-            <p style={{ fontSize: 13, color: 'var(--ink-muted)', lineHeight: 1.5 }}>Visualize asset correlation structures and identify systemically important nodes driving portfolio risk.</p>
-          </div>
-        </Link>
-        <Link href="/monte-carlo" style={{ textDecoration: 'none' }}>
-          <div className="card-hover" style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 8, padding: 24, height: '100%', transition: 'all 0.2s' }}>
-            <h4 style={{ fontSize: 16, color: 'var(--ink)', marginBottom: 8 }}>Return Distribution Sim</h4>
-            <p style={{ fontSize: 13, color: 'var(--ink-muted)', lineHeight: 1.5 }}>5,000-path correlated Geometric Brownian Motion exploring tail events and VaR under baseline & stressed regimes.</p>
-          </div>
-        </Link>
-        <Link href="/stress" style={{ textDecoration: 'none' }}>
-          <div className="card-hover" style={{ background: 'white', border: '1px solid var(--border)', borderRadius: 8, padding: 24, height: '100%', transition: 'all 0.2s' }}>
-            <h4 style={{ fontSize: 16, color: 'var(--ink)', marginBottom: 8 }}>Stress Testing & Contagion</h4>
-            <p style={{ fontSize: 13, color: 'var(--ink-muted)', lineHeight: 1.5 }}>Regime-shifting tests scaling correlations towards 1.0, and eigenvalue metrics highlighting systemic collapse points.</p>
-          </div>
-        </Link>
+            </Link>
+          );
+        })}
       </div>
 
-      <style dangerouslySetInnerHTML={{__html: `
+      {/* ARCHITECTURE DIAGRAM */}
+      <h2 style={{
+        fontFamily: "'Playfair Display', serif",
+        fontSize: 24,
+        fontWeight: 400,
+        color: 'var(--ink)',
+        marginBottom: 24,
+      }}>
+        System Architecture
+      </h2>
+      <div style={{
+        background: 'var(--ink)',
+        border: '1px solid var(--gold)',
+        borderRadius: 8,
+        padding: 32,
+        marginBottom: 60,
+      }}>
+        {/* Row 1: Data Layer */}
+        <div style={{
+          border: '1px solid rgba(245,240,232,0.2)',
+          borderRadius: 6,
+          padding: '16px 20px',
+          marginBottom: 12,
+          textAlign: 'center',
+        }}>
+          <div style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: 10,
+            textTransform: 'uppercase',
+            letterSpacing: '0.15em',
+            color: 'var(--cream)',
+            opacity: 0.6,
+            marginBottom: 6,
+          }}>
+            DATA LAYER
+          </div>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 12,
+            color: 'var(--cream)',
+          }}>
+            Alpha Vantage → Feature Engineering → 10 BSE Assets
+          </div>
+        </div>
+
+        {/* Arrow */}
+        <div style={{ textAlign: 'center', fontSize: 16, color: 'var(--cream)', opacity: 0.4, margin: '4px 0' }}>↓</div>
+
+        {/* Row 2: AI Layer */}
+        <div style={{
+          border: '1px solid rgba(245,240,232,0.2)',
+          borderRadius: 6,
+          padding: '16px 20px',
+          marginBottom: 12,
+          textAlign: 'center',
+        }}>
+          <div style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: 10,
+            textTransform: 'uppercase',
+            letterSpacing: '0.15em',
+            color: 'var(--cream)',
+            opacity: 0.6,
+            marginBottom: 6,
+          }}>
+            AI LAYER
+          </div>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 12,
+            color: 'var(--cream)',
+          }}>
+            HMM · K-Means · Isolation Forest · OLS
+          </div>
+        </div>
+
+        {/* Arrow */}
+        <div style={{ textAlign: 'center', fontSize: 16, color: 'var(--cream)', opacity: 0.4, margin: '4px 0' }}>↓</div>
+
+        {/* Row 3: Security Layer */}
+        <div style={{
+          border: '1px solid var(--gold)',
+          borderRadius: 6,
+          padding: '16px 20px',
+          textAlign: 'center',
+        }}>
+          <div style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: 10,
+            textTransform: 'uppercase',
+            letterSpacing: '0.15em',
+            color: 'var(--gold)',
+            marginBottom: 6,
+          }}>
+            SECURITY LAYER
+          </div>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 12,
+            color: 'var(--gold)',
+          }}>
+            PromptGuard · Integrity Monitor · Audit Log
+          </div>
+        </div>
+      </div>
+
+      {/* CTA ROW */}
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 40 }}>
+        <Link href="/intelligence" style={{ textDecoration: 'none' }}>
+          <button className="btn-primary" style={{ fontSize: 14, padding: '12px 28px' }}>
+            Open Intelligence Dashboard
+          </button>
+        </Link>
+        <Link href="/security" style={{ textDecoration: 'none' }}>
+          <button className="btn-outline" style={{ fontSize: 14, padding: '12px 28px' }}>
+            View Security Console
+          </button>
+        </Link>
+        <a
+          href="https://github.com/Praveen7Patil/RISK-GRAPH"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            textDecoration: 'none',
+            padding: '12px 28px',
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: 14,
+            color: 'var(--ink-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          GitHub ↗
+        </a>
+      </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
         .card-hover:hover {
           border-color: var(--gold) !important;
           transform: translateY(-2px);

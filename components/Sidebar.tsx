@@ -3,10 +3,20 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Share2, TrendingUp, Zap, PieChart, Receipt, BookOpen, BarChart2, HelpCircle, Settings, X, Compass, Layers, Activity, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { Share2, TrendingUp, Zap, PieChart, Receipt, BookOpen, BarChart2, HelpCircle, Settings, X, Compass, Layers, Activity, ShieldAlert, AlertTriangle, Brain, Shield } from 'lucide-react';
 import { usePortfolio } from '@/lib/PortfolioContext';
 
 const navGroups = [
+  {
+    title: 'AI INTELLIGENCE',
+    items: [
+      { href: '/intelligence', label: 'Intelligence', icon: Brain },
+      { href: '/regime', label: 'Regime', icon: Activity },
+      { href: '/anomaly', label: 'Anomaly', icon: AlertTriangle },
+      { href: '/forecast', label: 'Forecast', icon: TrendingUp },
+      { href: '/security', label: 'Security', icon: Shield },
+    ]
+  },
   {
     title: 'ANALYSIS',
     items: [
@@ -271,7 +281,7 @@ export default function Sidebar() {
             letterSpacing: '0.2em',
             color: 'var(--ink-muted)',
           }}>
-            2.0
+            3.0
           </span>
         </div>
 

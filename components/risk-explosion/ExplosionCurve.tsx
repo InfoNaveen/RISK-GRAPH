@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceArea, ReferenceLine, ReferenceDot, Area, ResponsiveContainer } from 'recharts';
 import { usePortfolio } from '@/lib/PortfolioContext';
-import { getVolatilities, stressCovariance, portfolioVariance } from '@/lib/math';
+import { getVolatilities, getCorrelationSubMatrix, stressCovariance, portfolioVariance } from '@/lib/math';
 
 export default function ExplosionCurve() {
   const { alpha, setAlpha, tickers, portfolioWeights } = usePortfolio();
@@ -14,13 +14,14 @@ export default function ExplosionCurve() {
     
     const vols = getVolatilities(tickers);
     const weightArray = tickers.map(t => weights[t] || 0);
+    const corrSub = getCorrelationSubMatrix(tickers);
 
     const data = [];
     for (let i = 0; i <= 100; i++) {
       const currentA = i / 100;
-      const cov = stressCovariance(currentA, vols);
+      const cov = stressCovariance(currentA, vols, corrSub);
       const varP = portfolioVariance(weightArray, cov);
-      const volP = Math.sqrt(varP) * Math.sqrt(252); // Annualized
+      const volP = Math.sqrt(Math.max(0, varP)) * Math.sqrt(252); // Annualized
 
       data.push({
         alpha: currentA,
@@ -49,8 +50,8 @@ export default function ExplosionCurve() {
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: 24, height: '100%', display: 'flex', flexDirection: 'column' }}>
       <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, marginBottom: 24 }}>Systemic Risk Expansion</h3>
       
-      <div style={{ flex: 1, minHeight: 400 }}>
-        <ResponsiveContainer width="100%" height="100%">
+      <div style={{ width: '100%', height: 420 }}>
+        <ResponsiveContainer width="100%" height={400}>
           <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }} onClick={handleChartClick}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
             <XAxis 

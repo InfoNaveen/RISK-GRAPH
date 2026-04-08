@@ -4,8 +4,8 @@ import Sidebar from "@/components/Sidebar";
 import { PortfolioProvider } from "@/lib/PortfolioContext";
 
 export const metadata: Metadata = {
-  title: "RiskGraph 2.0 — Quantitative Risk Analytics",
-  description: "Graph-theoretic portfolio risk analytics with Monte Carlo simulation, stress testing, and Indian tax computation.",
+  title: "RiskGraph 3.0 — AI Risk Intelligence Platform",
+  description: "Graph-theoretic portfolio risk analytics with 4 ML models, adversarial defense, live NSE data, and mathematically auditable predictions.",
 };
 
 export default function RootLayout({
