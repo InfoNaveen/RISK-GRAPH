@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⬡ RiskGraph 3.0
+# ⬡ RiskGraph
 
 ### *The only financial AI that knows when it's being attacked.*
 
