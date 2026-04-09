@@ -19,7 +19,7 @@ with an adversarial defense layer that protects every prediction it makes.**
 
 <br/>
 
-**[Live Demo]([https://risk-graph.vercel.app](https://risk-graph-sand.vercel.app/efficient-frontier))** · **[Intelligence Dashboard](https://risk-graph.vercel.app/intelligence)** · **[Security Console](https://risk-graph.vercel.app/security)** · **[Math Reference](https://risk-graph.vercel.app/math)**
+**[Live Demo]((https://risk-graph-sand.vercel.app/efficient-frontier))** · **[Intelligence Dashboard](https://risk-graph.vercel.app/intelligence)** · **[Security Console](https://risk-graph.vercel.app/security)** · **[Math Reference](https://risk-graph.vercel.app/math)**
 
 <br/>
 
