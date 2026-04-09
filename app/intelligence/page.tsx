@@ -326,7 +326,7 @@ export default function IntelligencePage() {
         setNarrative(data.narrative || 'No analysis returned.');
       }
     } catch {
-      setNarrative('Failed to reach analyst endpoint. Please check your OpenAI API key.');
+      setNarrative('Failed to reach analyst endpoint. Local fallback will engage on retry.');
       setSecurityBadge({ scanned: true, safe: true });
     } finally {
       setAnalystLoading(false);
@@ -606,7 +606,7 @@ export default function IntelligencePage() {
             color: 'var(--cream)',
             margin: 0,
           }}>
-            GPT-4o Risk Analyst
+            AI Risk Analyst — Groq Llama 3.3
           </h2>
         </div>
 
