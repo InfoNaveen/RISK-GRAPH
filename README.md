@@ -41,13 +41,13 @@ RiskGraph 3.0 is the answer to that question. It doesn't just predict risk — i
 
 ---
 
-## What's New in 3.0
+## What's New in RiskGraph
 
-RiskGraph 2.0 was a mathematical exhibition tool — rigorous, beautiful, and purely synthetic.
+Old Models were a mathematical exhibition tool — rigorous, beautiful, and purely synthetic.
 
 **3.0 is an AI system.** The architecture has been rebuilt from the ground up:
 
-| Dimension | 2.0 | 3.0 |
+| Dimension | Other Models | RiskGraph |
 |-----------|-----|-----|
 | Core | 19 mathematical formulas | 4 ML models + formulas as proof layer |
 | Data | Seeded synthetic GBM | Live NSE via Alpha Vantage + synthetic fallback |
@@ -154,7 +154,7 @@ Output:      R², next-day σ forecast, 95% CI, t-statistics per feature
 
 ### 🛡️ Adversarial Defense Layer
 
-**The component that separates RiskGraph 3.0 from every other financial AI system.**
+**The component that separates RiskGraph from every other financial AI system.**
 
 #### PromptGuard — Real-Time Injection Detection
 
@@ -411,7 +411,7 @@ Graceful fallback                 skewness, kurtosis             integrityScore
 
 ### Threat Model
 
-RiskGraph 3.0 defends against four adversarial threat classes specific to financial AI systems:
+RiskGraph defends against four adversarial threat classes specific to financial AI systems:
 
 | Threat Class | Attack Vector | Defense |
 |---|---|---|
@@ -664,7 +664,7 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 <div align="center">
 
-**RiskGraph 3.0** · Built by **Team Apex Null** · ForgeX 2026 · CMRIT Bengaluru
+**RiskGraph** · Built by **Team Apex Null** · ForgeX 2026 · CMRIT Bengaluru
 
 *"While every AI team wraps an LLM around a spreadsheet,*  
 *RiskGraph does the math they skipped —*  
