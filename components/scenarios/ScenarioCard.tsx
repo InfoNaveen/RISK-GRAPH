@@ -6,10 +6,11 @@ import { ScenarioDefinition } from '@/lib/scenarios';
 interface ScenarioCardProps {
   scenario: ScenarioDefinition;
   impactPercent: number;
+  disabled?: boolean;
   onAnalyze: () => void;
 }
 
-export default function ScenarioCard({ scenario, impactPercent, onAnalyze }: ScenarioCardProps) {
+export default function ScenarioCard({ scenario, impactPercent, disabled, onAnalyze }: ScenarioCardProps) {
   const isNegative = impactPercent < 0;
   
   return (
@@ -60,8 +61,9 @@ export default function ScenarioCard({ scenario, impactPercent, onAnalyze }: Sce
 
       <button
         onClick={onAnalyze}
+        disabled={disabled}
         className="btn-outline"
-        style={{ width: '100%', fontSize: 13, padding: 10 }}
+        style={{ width: '100%', fontSize: 13, padding: 10, opacity: disabled ? 0.5 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}
       >
         Analyze &rarr;
       </button>

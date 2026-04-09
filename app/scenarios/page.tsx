@@ -11,8 +11,10 @@ import { applyScenario } from '@/lib/scenarios';
 
 export default function ScenariosPage() {
   const { tickers, portfolioWeights } = usePortfolio();
-  const weights = portfolioWeights || {};
+  const weights = portfolioWeights ?? {};
+  const weightsReady = portfolioWeights !== null && Object.keys(portfolioWeights).length > 0;
   const [selectedScenario, setSelectedScenario] = useState<ScenarioDefinition | null>(null);
+  const chartRef = React.useRef<HTMLDivElement>(null);
 
   const totalValue = 1000000; // 10 Lakhs nominal base for visual understanding
 
@@ -49,20 +51,44 @@ export default function ScenariosPage() {
               <ScenarioCard 
                 key={idx} 
                 scenario={scen} 
-                impactPercent={impact} 
+                impactPercent={impact}
+                disabled={!weightsReady}
                 onAnalyze={() => {
+                  if (!weightsReady) return;
                   setSelectedScenario(scen);
-                  window.scrollTo({ top: 300, behavior: 'smooth' });
+                  // Scroll to the chart section — use ref not magic number
+                  setTimeout(() => {
+                    chartRef.current?.scrollIntoView({ 
+                      behavior: 'smooth', 
+                      block: 'start' 
+                    });
+                  }, 50);
                 }} 
               />
             ))}
           </div>
 
-          {selectedScenario && (
-            <div style={{ marginBottom: 40 }}>
-              <ScenarioImpactChart scenario={selectedScenario} totalValue={totalValue} />
-            </div>
-          )}
+          <div ref={chartRef}>
+            {selectedScenario && weightsReady && (
+              <div style={{ marginBottom: 40 }}>
+                <ScenarioImpactChart 
+                  scenario={selectedScenario} 
+                  totalValue={totalValue}
+                  weights={weights}
+                />
+              </div>
+            )}
+            {selectedScenario && !weightsReady && (
+              <div style={{ 
+                padding: 20, 
+                color: 'var(--ink-muted)',
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 13
+              }}>
+                ⏳ Portfolio analysis running — please wait...
+              </div>
+            )}
+          </div>
 
           <CustomScenarioBuilder 
             totalValue={totalValue} 

@@ -9,24 +9,38 @@ import { ASSET_COLORS } from '@/lib/types';
 interface ScenarioImpactChartProps {
   scenario: ScenarioDefinition;
   totalValue: number; // E.g. 10,000,000 default if we don't have a global state for it
+  weights?: Record<string, number>;
 }
 
-export default function ScenarioImpactChart({ scenario, totalValue }: ScenarioImpactChartProps) {
+export default function ScenarioImpactChart({ scenario, totalValue, weights }: ScenarioImpactChartProps) {
   const { tickers, portfolioWeights } = usePortfolio();
 
   const data = useMemo(() => {
     if (tickers.length === 0) return null;
-    const weights = portfolioWeights || {};
-    
-    const weightsRecord: Record<string, number> = {};
-    tickers.forEach(t => weightsRecord[t] = weights[t] || 0);
-
-    const result = applyScenario(scenario, weightsRecord, totalValue);
+    // Use passed weights — fallback to equal weight if missing
+    const resolvedWeights = weights && 
+      Object.keys(weights).length > 0 
+        ? weights 
+        : Object.fromEntries(
+            Object.keys(scenario.shocks).map(k => 
+              [k, 1 / Object.keys(scenario.shocks).length]
+            )
+          );
+    const result = applyScenario(
+      scenario, 
+      resolvedWeights, 
+      totalValue
+    );
     
     // Waterfall steps
     const items = Object.entries(result.assetImpacts)
       .filter(([_, v]) => Math.abs(v) > 0.0001)
-      .map(([asset, value]) => ({ asset, value, weight: weightsRecord[asset], shock: scenario.shocks[asset] || 0 }));
+      .map(([asset, value]) => ({ 
+        asset, 
+        value: value * totalValue, 
+        weight: resolvedWeights[asset], 
+        shock: scenario.shocks[asset] || 0 
+      }));
       
     items.sort((a, b) => Math.abs(b.value) - Math.abs(a.value)); // sorts by largest absolute impact
 

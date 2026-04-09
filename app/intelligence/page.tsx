@@ -66,23 +66,101 @@ export default function IntelligencePage() {
   const contextRef = useRef<Record<string, unknown>>({});
 
   const runPipeline = useCallback(async () => {
+    let latestRegime = 1;
+    let latestAnomalyCount = 0;
+    let latestR2 = 0;
+
     try {
-      // Fetch prices
-      const res = await fetch('/api/prices');
-      if (!res.ok) {
-        setPipeline((p) => ({ ...p, loading: false, dataSource: 'synthetic' }));
-        return;
+      // Try live data with 8 second timeout — fallback to 
+      // synthetic if rate limited or unavailable
+      let assets: AssetData[] = [];
+      let hasLive = false;
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const res = await fetch('/api/prices', { 
+          signal: controller.signal 
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const json: { data: AssetData[]; timestamp: string } = 
+            await res.json();
+          // Only use assets that actually have price data
+          const liveAssets = json.data.filter(
+            (a) => a.prices && a.prices.length > 10
+          );
+          if (liveAssets.length >= 3) {
+            assets = json.data;
+            hasLive = json.data.some(
+              (a) => a.source === 'live' && a.prices.length > 0
+            );
+          }
+        }
+      } catch {
+        // Timeout or network error — fall through to synthetic
       }
 
-      const json: { data: AssetData[]; timestamp: string } = await res.json();
-      const assets = json.data;
-      const hasLive = assets.some((a) => a.source === 'live' && a.prices.length > 0);
+      // If live data failed or insufficient — generate synthetic
+      // GBM prices so ML models always have real data to run on
+      if (assets.length === 0 || 
+          assets.every((a) => a.prices.length < 10)) {
+        const syntheticSymbols = [
+          'RELIANCE','TCS','HDFCBANK','INFY','ICICIBANK',
+          'AXISBANK','SBIN','WIPRO','LT','MARUTI'
+        ];
+        // Starting prices approximate NSE FY2025-26 values
+        const startPrices: Record<string, number> = {
+          RELIANCE:2850, TCS:3920, HDFCBANK:1680, INFY:1540,
+          ICICIBANK:1220, AXISBANK:1080, SBIN:780, WIPRO:480,
+          LT:3450, MARUTI:12200
+        };
+        // Deterministic GBM using seeded LCG (same seed as 
+        // priceData.ts to maintain consistency)
+        let seed = 42;
+        const lcg = () => {
+          seed = (1664525 * seed + 1013904223) & 0xffffffff;
+          return (seed >>> 0) / 0xffffffff;
+        };
+        const gauss = () => {
+          const u = lcg() || 1e-10;
+          const v = lcg();
+          return Math.sqrt(-2 * Math.log(u)) * Math.cos(2*Math.PI*v);
+        };
+
+        assets = syntheticSymbols.map((symbol) => {
+          const mu = 0.0008;
+          const sigma = 0.018;
+          const S0 = startPrices[symbol] ?? 1000;
+          const prices = [];
+          let S = S0;
+          // Generate 252 trading days
+          const startDate = new Date('2024-04-01');
+          for (let i = 0; i < 252; i++) {
+            S = S * Math.exp(
+              (mu - 0.5 * sigma * sigma) + sigma * gauss()
+            );
+            const d = new Date(startDate);
+            d.setDate(d.getDate() + i);
+            prices.push({
+              date: d.toISOString().slice(0, 10),
+              close: Math.round(S * 100) / 100,
+              volume: Math.floor(1000000 + lcg() * 5000000),
+              high: Math.round(S * 1.02 * 100) / 100,
+              low: Math.round(S * 0.98 * 100) / 100,
+            });
+          }
+          return { symbol, source: 'synthetic' as const, prices };
+        });
+        hasLive = false;
+      }
 
       setPipeline((p) => ({
         ...p,
         pricesLoaded: true,
         dataSource: hasLive ? 'live' : 'synthetic',
-        timestamp: json.timestamp,
+        timestamp: new Date().toISOString(),
       }));
 
       // Get first asset with prices for HMM
@@ -101,6 +179,7 @@ export default function IntelligencePage() {
         const params = trainHMM(logReturns);
         const states = viterbi(logReturns, params);
         setCurrentRegime(states[states.length - 1] ?? 1);
+        latestRegime = states[states.length - 1] ?? 1;
 
         const dates = primaryAsset?.prices.slice(1).map((p) => p.date) || [];
         const rd: RegimeDataPoint[] = states.map((regime, i) => ({
@@ -155,6 +234,7 @@ export default function IntelligencePage() {
         const ifoResult = isolationForest(featureVectors);
         const count = ifoResult.anomalyFlags.filter(Boolean).length;
         setAnomalyCount(count);
+        latestAnomalyCount = count;
       }
       setPipeline((p) => ({ ...p, anomalyDone: true }));
 
@@ -188,17 +268,21 @@ export default function IntelligencePage() {
         if (X.length > 5) {
           const olsResult = olsRegression(X, y);
           setRSquared(olsResult.rSquared);
+          latestR2 = olsResult.rSquared;
         }
       }
       setPipeline((p) => ({ ...p, olsDone: true, loading: false }));
 
-      // Store context for analyst
+      // Store context using LOCAL variables not stale state
+      // These are the actual computed values from this pipeline run
       contextRef.current = {
-        currentRegime: REGIME_LABELS[currentRegime],
-        anomalyCount,
-        rSquared,
+        regime: REGIME_LABELS[latestRegime],
+        anomalyCount: latestAnomalyCount,
+        rSquaredValue: latestR2,
         assetCount: assets.length,
         dataSource: hasLive ? 'live' : 'synthetic',
+        assetsAnalyzed: assetLabels.join(', '),
+        timestamp: new Date().toISOString(),
       };
     } catch (err) {
       console.error('Pipeline error:', err instanceof Error ? err.message : 'Unknown');
@@ -224,10 +308,11 @@ export default function IntelligencePage() {
           userQuery: analystQuery,
           portfolioContext: {
             ...contextRef.current,
-            regime: REGIME_LABELS[currentRegime],
-            anomalies: anomalyCount,
-            modelR2: rSquared.toFixed(4),
-            clusters: clusterAssets.length,
+            clusterCount: clusterAssets.length,
+            clusterBreakdown: clusterAssets.map(a => 
+              `${a.symbol}:Cluster${a.cluster}`
+            ).join(', '),
+            regimeDistribution: `Bear:${regimeCounts[0]}d Sideways:${regimeCounts[1]}d Bull:${regimeCounts[2]}d`,
           },
         }),
       });
